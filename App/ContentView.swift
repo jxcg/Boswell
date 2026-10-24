@@ -31,6 +31,12 @@ struct ContentView: View {
                     Text("Recording and note drafting are not available yet.")
                         .foregroundStyle(.secondary)
                 }
+
+                Section("Developer checks") {
+                    NavigationLink("Check this iPhone") {
+                        DeviceCheckView()
+                    }
+                }
             }
             .navigationTitle("Boswell")
         }
