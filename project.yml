@@ -1,0 +1,36 @@
+name: Boswell
+options:
+  deploymentTarget:
+    iOS: "27.0"
+packages:
+  BoswellCore:
+    path: BoswellCore
+targets:
+  Boswell:
+    type: application
+    platform: iOS
+    sources:
+      - App
+    configFiles:
+      Debug: Config/Boswell.xcconfig
+      Release: Config/Boswell.xcconfig
+    settings:
+      base:
+        TARGETED_DEVICE_FAMILY: "1"
+        SWIFT_VERSION: "5.0"
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_CFBundleDisplayName: Boswell
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        MARKETING_VERSION: "0.1.0"
+        CURRENT_PROJECT_VERSION: "1"
+    dependencies:
+      - package: BoswellCore
+schemes:
+  Boswell:
+    build:
+      targets:
+        Boswell: all
+    run:
+      config: Debug
+    archive:
+      config: Release
