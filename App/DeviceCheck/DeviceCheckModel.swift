@@ -95,7 +95,9 @@ final class DeviceCheckModel {
         let started = Date()
         do {
             let model = SystemLanguageModel.default
-            let prompt: Prompt = "Fictional test: Pip is a cat. Return the pet's name and species exactly as stated."
+            let prompt = Prompt {
+                "Fictional test: Pip is a cat. Return the pet's name and species exactly as stated."
+            }
             let tokens = try await model.tokenCount(for: prompt)
             let session = LanguageModelSession(model: model, instructions: "Extract only the facts in the fictional text. Do not invent details.")
             let response = try await session.respond(
