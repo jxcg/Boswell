@@ -1,0 +1,221 @@
+#!/usr/bin/env bash
+set -euo pipefail
+set -E
+
+# Swiftly 1.1.2 instructions: https://www.swift.org/install/linux/swiftly/
+# Signing fingerprint: https://www.swift.org/keys/active
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+build=1
+run_tests=0
+for option in "$@"; do
+  case "$option" in
+    --run-tests) run_tests=1 ;;
+    --no-build) build=0 ;;
+    --help)
+      printf '%s\n' 'Usage: .agents/setup [--run-tests] [--no-build] [--help]' \
+        'Reuse Swift >=5.9 or install Swift on Linux (new installs: BOSWELL_SWIFT_VERSION, default 6.2).' \
+        '--no-build skips building; --run-tests still runs tests.' \
+        'Exit: 0 ready; 1 build/test failure; 2 Swift unavailable; 64 invalid option.'
+      exit 0 ;;
+    *) printf 'Unknown option: %s\n' "$option" >&2; exit 64 ;;
+  esac
+done
+
+started=$SECONDS
+step_started=$SECONDS
+step() {
+  printf '[setup +%ss, previous step %ss] %s\n' "$((SECONDS - started))" \
+    "$((SECONDS - step_started))" "$*"
+  step_started=$SECONDS
+}
+unavailable() {
+  printf 'Swift setup failed: %s\n' "$*" >&2
+  printf '%s\n' 'Check access to download.swift.org and www.swift.org, then rerun .agents/setup.' >&2
+  exit 2
+}
+# Reserve status 1 for the explicit build/test failures below.
+trap 'unavailable "Unexpected setup failure near line $LINENO; see the log above."' ERR
+suitable_swift() {
+  local version major minor
+  command -v swift >/dev/null 2>&1 || return 1
+  version=$(swift --version 2>/dev/null) || return 1
+  version=$(printf '%s\n' "$version" | awk '/Swift version/ { for (i=1;i<NF;i++) if ($i == "version") { print $(i+1); exit } }')
+  major=${version%%.*}
+  minor=${version#*.}
+  minor=${minor%%.*}
+  case "$major:$minor" in *[!0-9:]*|:*|*:) return 1 ;; esac
+  [ "$major" -gt 5 ] || { [ "$major" -eq 5 ] && [ "$minor" -ge 9 ]; }
+}
+
+swiftly_home=${SWIFTLY_HOME_DIR:-$HOME/.local/share/swiftly}
+# Swiftly otherwise derives paths from the account database, not always HOME
+# (notably root in containers). Keep initialization and subsequent shells aligned.
+export SWIFTLY_HOME_DIR="$swiftly_home"
+export SWIFTLY_BIN_DIR="${SWIFTLY_BIN_DIR:-$swiftly_home/bin}"
+export SWIFTLY_TOOLCHAINS_DIR="${SWIFTLY_TOOLCHAINS_DIR:-$swiftly_home/toolchains}"
+env_file=$swiftly_home/env.sh
+post_install=$swiftly_home/boswell-post-install.sh
+can_run_as_root() {
+  [ "$(id -u)" -eq 0 ] || { command -v sudo >/dev/null 2>&1 && sudo -n true >/dev/null 2>&1; }
+}
+run_as_root() {
+  if [ "$(id -u)" -eq 0 ]; then
+    "$@"
+  else
+    sudo -n "$@"
+  fi
+}
+install_system_dependencies() {
+  [ -s "$post_install" ] || return 0
+  if ! can_run_as_root; then
+    printf '%s\n' 'Swift requires these system dependency commands (ask an administrator to run them):' >&2
+    cat "$post_install" >&2
+    printf 'After installing dependencies, remove %s and rerun setup.\n' "$post_install" >&2
+    unavailable 'System dependencies require root or passwordless sudo. Alternatively rerun setup as root with the same HOME/SWIFTLY_HOME_DIR.'
+  fi
+  step 'Installing Swift system dependencies'
+  run_as_root env DEBIAN_FRONTEND=noninteractive bash "$post_install" || unavailable 'Swift system dependency installation failed.'
+  rm -f "$post_install"
+}
+load_swiftly() {
+  if [ -r "$env_file" ]; then
+    # The official installer writes the environment needed by its proxies.
+    # shellcheck disable=SC1090
+    . "$env_file"
+    hash -r
+  fi
+}
+persist_swiftly() {
+  local profile
+  for profile in "$HOME/.profile" "$HOME/.bash_profile" "$HOME/.bash_login" "$HOME/.zprofile"; do
+    # Do not introduce a bash_profile that would hide an existing .profile.
+    if [ "$profile" != "$HOME/.profile" ] && [ ! -f "$profile" ]; then continue; fi
+    if ! grep -Fq '# Boswell Swift environment' "$profile" 2>/dev/null; then
+      printf '\n# Boswell Swift environment\n[ ! -r %q ] || . %q\n' "$env_file" "$env_file" >> "$profile"
+    fi
+  done
+}
+apt_fallback() {
+  # Use only an already configured repository. Never add repositories or signing keys.
+  can_run_as_root && command -v apt-cache >/dev/null 2>&1 && \
+    apt-cache show swiftlang >/dev/null 2>&1 || return 1
+  step 'Trying swiftlang from configured apt repositories'
+  run_as_root env DEBIAN_FRONTEND=noninteractive apt-get install -y swiftlang || return 1
+  hash -r
+  suitable_swift
+}
+
+step 'Checking for Swift >=5.9'
+install_system_dependencies
+if ! suitable_swift; then
+  load_swiftly
+fi
+if ! suitable_swift && command -v swiftly >/dev/null 2>&1; then
+  step 'Reconnecting the saved Swiftly toolchain'
+  swiftly link --assume-yes || printf '%s\n' 'No reusable active Swiftly toolchain; continuing installation.'
+  hash -r
+fi
+if ! suitable_swift; then
+  case "$(uname -s)" in
+    Darwin) unavailable 'Install Xcode 27, select its developer tools with xcode-select, and rerun setup.' ;;
+    Linux) ;;
+    *) unavailable 'Automatic installation supports Linux only. Install Swift >=5.9 on PATH.' ;;
+  esac
+
+  step 'Preparing Linux installer prerequisites'
+  missing=()
+  for tool in curl tar gzip gpg; do
+    if ! command -v "$tool" >/dev/null 2>&1; then
+      if [ "$tool" = gpg ]; then missing+=(gnupg); else missing+=("$tool"); fi
+    fi
+  done
+  if [ "${#missing[@]}" -gt 0 ]; then
+    if can_run_as_root && command -v apt-get >/dev/null 2>&1; then
+      step "Installing prerequisites: ${missing[*]}"
+      run_as_root apt-get update || unavailable 'apt-get update failed.'
+      run_as_root env DEBIAN_FRONTEND=noninteractive apt-get install -y "${missing[@]}" || unavailable 'Install curl, tar, gzip, and gnupg as root.'
+    else
+      unavailable "Ask an administrator to install missing prerequisites: ${missing[*]}."
+    fi
+  fi
+
+  work=$(mktemp -d) || unavailable 'Cannot create temporary installer directory.'
+  trap 'rm -rf "$work"' EXIT
+  if ! command -v swiftly >/dev/null 2>&1; then
+    architecture=$(uname -m)
+    case "$architecture" in x86_64|aarch64) ;; *) unavailable "Unsupported Linux architecture: $architecture" ;; esac
+    archive="swiftly-1.1.2-$architecture.tar.gz"
+    base=https://download.swift.org/swiftly/linux
+    step 'Downloading official Swiftly 1.1.2 and signature'
+    if ! curl --fail --location --retry 2 --connect-timeout 20 --max-time 300 "$base/$archive" -o "$work/$archive"; then
+      if apt_fallback; then
+        step 'Using apt Swift'
+      else
+        unavailable 'Swiftly download failed; no suitable swiftlang apt fallback is available.'
+      fi
+    else
+      curl --fail --location --retry 2 --connect-timeout 20 --max-time 60 "$base/$archive.sig" -o "$work/$archive.sig" || unavailable 'Cannot download Swiftly signature.'
+      # Pin the primary fingerprint published on swift.org, not merely a key ID
+      # or an unchecked key downloaded alongside the archive. Use a private keyring.
+      step 'Verifying Swiftly signing key and archive'
+      curl --fail --location --retry 2 --connect-timeout 20 --max-time 60 \
+        https://www.swift.org/keys/automatic-signing-key-4.asc -o "$work/key.asc" || unavailable 'Cannot download Swift signing key.'
+      mkdir -m 700 "$work/gnupg"
+      signing_fingerprint=E813C892820A6FA13755B268F167DF1ACF9CE069
+      fingerprint=$(gpg --homedir "$work/gnupg" --batch --with-colons --show-keys "$work/key.asc" | awk -F: '$1 == "fpr" { print $10; exit }') || unavailable 'Cannot inspect Swift signing key.'
+      [ "$fingerprint" = "$signing_fingerprint" ] || unavailable 'Swift signing key fingerprint mismatch; refusing installer.'
+      gpg --homedir "$work/gnupg" --batch --import "$work/key.asc" || unavailable 'Cannot import Swift signing key.'
+      gpg --homedir "$work/gnupg" --batch --status-fd 1 --verify "$work/$archive.sig" "$work/$archive" > "$work/signature-status" || unavailable 'Swiftly signature verification failed; refusing installer.'
+      grep -Fq "[GNUPG:] VALIDSIG $signing_fingerprint " "$work/signature-status" || unavailable 'Swiftly signature was not made by the pinned Swift key.'
+      tar -xzf "$work/$archive" -C "$work" || unavailable 'Cannot extract Swiftly archive.'
+      step 'Initializing Swiftly'
+      "$work/swiftly" init --assume-yes --skip-install --quiet-shell-followup || unavailable 'Swiftly initialization failed.'
+      load_swiftly
+    fi
+  fi
+
+  if ! suitable_swift; then
+    step "Installing Swift ${BOSWELL_SWIFT_VERSION:-6.2}"
+    # --post-install-file lets setup handle system dependencies without a sudo prompt.
+    # Keep a pending script across failures so a later warm run cannot skip it.
+    mkdir -p "$swiftly_home"
+    # --use writes a project .swift-version when run inside a git checkout.
+    # A temporary working directory selects the user default without editing this repo.
+    if ! (cd "$work" && \
+      swiftly install --assume-yes --use --post-install-file "$post_install" "${BOSWELL_SWIFT_VERSION:-6.2}" && \
+      swiftly link --assume-yes); then
+      apt_fallback || unavailable 'Swift installation failed. Install Swift >=5.9 or rerun setup as root for system dependencies.'
+    fi
+    install_system_dependencies
+    load_swiftly
+    suitable_swift || unavailable 'Installed toolchain is not a working Swift >=5.9.'
+  fi
+fi
+
+swiftly_bin=${SWIFTLY_BIN_DIR:-$swiftly_home/bin}
+# A saved environment must not replace a different, already suitable PATH toolchain
+# in future shells either. Persist only the toolchain selected by this setup run.
+if [ -r "$env_file" ] && [ "$(command -v swift)" = "$swiftly_bin/swift" ]; then
+  persist_swiftly
+  if [ "$(id -u)" -eq 0 ] && command -v swiftly >/dev/null 2>&1; then
+    step 'Linking Swift binaries for future shells'
+    toolchain=$(swiftly use --print-location) || unavailable 'Cannot locate active Swift toolchain.'
+    [ -d "$toolchain/usr/bin" ] || unavailable 'Swiftly returned an invalid toolchain location.'
+    mkdir -p /usr/local/bin
+    for binary in "$toolchain"/usr/bin/swift* "$toolchain"/usr/bin/sourcekit-lsp; do
+      [ -x "$binary" ] || continue
+      ln -sf "$binary" "/usr/local/bin/${binary##*/}"
+    done
+  fi
+fi
+
+step "Using $(swift --version)"
+if [ "$build" -eq 1 ]; then
+  step 'Building BoswellCore (including test targets)'
+  swift build --package-path "$repo_root/BoswellCore" --build-tests || exit 1
+fi
+if [ "$run_tests" -eq 1 ]; then
+  step 'Testing BoswellCore'
+  swift test --package-path "$repo_root/BoswellCore" || exit 1
+fi
+step 'Ready'

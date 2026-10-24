@@ -1,0 +1,32 @@
+name: Agent setup
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  linux:
+    name: Clean Linux setup
+    runs-on: ubuntu-latest
+    container: ubuntu:24.04
+    timeout-minutes: 20
+    steps:
+      - name: Install check prerequisites
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends ca-certificates git curl shellcheck
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
+      - name: Check shell scripts
+        run: shellcheck .agents/setup .agents/tests/setup_test.sh
+      - name: Test setup without network
+        run: .agents/tests/setup_test.sh
+      - name: Cold setup, build and test
+        run: .agents/setup --run-tests
+      - name: Repeat setup, build and test
+        run: .agents/setup --run-tests

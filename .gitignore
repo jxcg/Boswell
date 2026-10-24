@@ -1,0 +1,29 @@
+# Generated projects and Swift/Xcode caches
+*.xcodeproj/
+DerivedData/
+.build/
+.swiftpm/
+*.xcuserstate
+xcuserdata/
+App/Info.plist
+.DS_Store
+
+# Local signing and credentials
+Config/Signing.xcconfig
+*.p12
+*.p8
+*.pem
+*.key
+*.mobileprovision
+*.provisionprofile
+.env
+.env.*
+
+# Never commit consultation recordings or generated exports
+*.m4a
+*.wav
+*.caf
+exports/
+
+# Local portal metadata and review artifacts
+.amp/
