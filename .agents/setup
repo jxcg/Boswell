@@ -139,7 +139,8 @@ if ! suitable_swift; then
     fi
   fi
 
-  work=$(mktemp -d) || unavailable 'Cannot create temporary installer directory.'
+  # macOS mktemp can prefer its per-user directory over TMPDIR without a template.
+  work=$(mktemp -d "${TMPDIR:-/tmp}/boswell-setup.XXXXXX") || unavailable 'Cannot create temporary installer directory.'
   trap 'rm -rf "$work"' EXIT
   if ! command -v swiftly >/dev/null 2>&1; then
     architecture=$(uname -m)
@@ -147,18 +148,18 @@ if ! suitable_swift; then
     archive="swiftly-1.1.2-$architecture.tar.gz"
     base=https://download.swift.org/swiftly/linux
     step 'Downloading official Swiftly 1.1.2 and signature'
-    if ! curl --fail --location --retry 2 --connect-timeout 20 --max-time 300 "$base/$archive" -o "$work/$archive"; then
+    if ! curl --compressed --fail --location --retry 2 --connect-timeout 20 --max-time 300 "$base/$archive" -o "$work/$archive"; then
       if apt_fallback; then
         step 'Using apt Swift'
       else
         unavailable 'Swiftly download failed; no suitable swiftlang apt fallback is available.'
       fi
     else
-      curl --fail --location --retry 2 --connect-timeout 20 --max-time 60 "$base/$archive.sig" -o "$work/$archive.sig" || unavailable 'Cannot download Swiftly signature.'
+      curl --compressed --fail --location --retry 2 --connect-timeout 20 --max-time 60 "$base/$archive.sig" -o "$work/$archive.sig" || unavailable 'Cannot download Swiftly signature.'
       # Pin the primary fingerprint published on swift.org, not merely a key ID
       # or an unchecked key downloaded alongside the archive. Use a private keyring.
       step 'Verifying Swiftly signing key and archive'
-      curl --fail --location --retry 2 --connect-timeout 20 --max-time 60 \
+      curl --compressed --fail --location --retry 2 --connect-timeout 20 --max-time 60 \
         https://www.swift.org/keys/automatic-signing-key-4.asc -o "$work/key.asc" || unavailable 'Cannot download Swift signing key.'
       mkdir -m 700 "$work/gnupg"
       signing_fingerprint=E813C892820A6FA13755B268F167DF1ACF9CE069

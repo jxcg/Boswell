@@ -9,6 +9,7 @@ trap 'rm -rf "$suite"' EXIT
 real_bash=$(command -v bash)
 real_mkdir=$(command -v mkdir)
 real_ln=$(command -v ln)
+real_mktemp=$(command -v mktemp)
 mkdir -p "$suite/fixtures" "$suite/repo/.agents" "$suite/repo/BoswellCore"
 cp "$repo_root/.agents/setup" "$suite/repo/.agents/setup"
 
@@ -64,6 +65,8 @@ cat > "$suite/fixtures/curl" <<'STUB'
 set -euo pipefail
 printf 'curl %s\n' "$*" >> "$TEST_LOG"
 [ "${TEST_NETWORK:-ok}" = ok ] || exit 6
+# Responses can use HTTP content encoding; request transport decompression.
+case " $* " in *' --compressed '*) ;; *) exit 112 ;; esac
 url=
 output=
 while [ "$#" -gt 0 ]; do
@@ -99,6 +102,13 @@ STUB
 cat > "$suite/fixtures/uname" <<'STUB'
 #!/usr/bin/env bash
 case "$1" in -s) printf '%s\n' "${TEST_OS:-Linux}" ;; -m) echo x86_64 ;; *) exit 101 ;; esac
+STUB
+cat > "$suite/fixtures/mktemp" <<'STUB'
+#!/usr/bin/env bash
+set -euo pipefail
+# A template is required: BSD mktemp can otherwise ignore sandbox TMPDIR.
+[ "$#" -eq 2 ] && [ "$1" = -d ] || exit 111
+case "$2" in "$TEST_SANDBOX"/tmp/*) "$TEST_REAL_MKTEMP" "$@" ;; *) exit 111 ;; esac
 STUB
 cat > "$suite/fixtures/id" <<'STUB'
 #!/usr/bin/env bash
@@ -152,10 +162,10 @@ new_case() {
   case_name=$1
   sandbox=$suite/$case_name
   mkdir -p "$sandbox/home" "$sandbox/bin" "$sandbox/tmp"
-  for utility in bash awk cat cp dirname env grep gzip mktemp rm; do
+  for utility in bash awk cat cp dirname env grep gzip rm; do
     "$real_ln" -s "$(command -v "$utility")" "$sandbox/bin/$utility"
   done
-  for utility in swiftly curl gpg tar uname id apt-get apt-cache mkdir ln; do
+  for utility in swiftly curl gpg tar uname id apt-get apt-cache mkdir ln mktemp; do
     cp "$suite/fixtures/$utility" "$sandbox/bin/$utility"
   done
   # No installed swiftly by default: tar extracts its fixture during installation.
@@ -168,7 +178,7 @@ execute() {
   shift
   env -i HOME="$sandbox/home" PATH="$sandbox/bin" TMPDIR="$sandbox/tmp" SHELL=/bin/bash \
     TEST_LOG="$sandbox/log" TEST_FIXTURES="$suite/fixtures" TEST_SANDBOX="$sandbox" \
-    TEST_BIN="$sandbox/bin" TEST_REPO="$suite/repo" TEST_REAL_MKDIR="$real_mkdir" \
+    TEST_BIN="$sandbox/bin" TEST_REPO="$suite/repo" TEST_REAL_MKDIR="$real_mkdir" TEST_REAL_MKTEMP="$real_mktemp" \
     ${extra[@]+"${extra[@]}"} "$real_bash" "$suite/repo/.agents/setup" "$@" > "$sandbox/output" 2>&1 || actual=$?
   if [ "$actual" -ne "$expected" ]; then
     cat "$sandbox/output" >&2
