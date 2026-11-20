@@ -50,8 +50,8 @@ Use Xcode 27 on a Mac:
 ```sh
 brew install xcodegen
 xcodegen generate
-xcodebuild build -project Boswell.xcodeproj -scheme Boswell \
-  -destination 'generic/platform=macOS' CODE_SIGNING_ALLOWED=NO
+xcodebuild test -project Boswell.xcodeproj -scheme Boswell \
+  -destination 'platform=macOS' CODE_SIGNING_ALLOWED=NO
 ```
 
 Open generated `Boswell.xcodeproj`, select scheme **Boswell** and **My Mac**
@@ -70,7 +70,7 @@ never commit team credentials, signing keys or profiles.
 | Path | Purpose |
 | --- | --- |
 | `project.yml`, `Config/` | XcodeGen app spec and optional local signing |
-| `App/` | Starter SwiftUI app and accessible evidence key |
+| `App/`, `AppTests/` | Starter SwiftUI Mac app and app unit tests |
 | `BoswellCore/` | Foundation-only data contracts, fictional transcript and XCTest tests |
 | `.agents/` | Repeatable Swift setup and offline setup tests |
 | `.github/workflows/` | macOS Core/app checks and clean Ubuntu setup checks |

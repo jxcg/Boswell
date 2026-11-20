@@ -26,8 +26,8 @@ On a Mac with Xcode 27 selected and XcodeGen installed:
 
 ```sh
 xcodegen generate
-xcodebuild build -project Boswell.xcodeproj -scheme Boswell \
-  -destination 'generic/platform=macOS' CODE_SIGNING_ALLOWED=NO
+xcodebuild test -project Boswell.xcodeproj -scheme Boswell \
+  -destination 'platform=macOS' CODE_SIGNING_ALLOWED=NO
 ```
 
 See [README](README.md) for installation and signing. Generated projects, build

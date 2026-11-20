@@ -40,11 +40,11 @@ jobs:
         run: brew list xcodegen >/dev/null 2>&1 || brew install xcodegen
       - name: Generate project
         run: xcodegen generate
-      - name: Build unsigned Mac app
+      - name: Build and test unsigned Mac app
         run: >-
-          xcodebuild build
+          xcodebuild test
           -project Boswell.xcodeproj
           -scheme Boswell
-          -destination 'generic/platform=macOS'
+          -destination 'platform=macOS'
           -derivedDataPath DerivedData
           CODE_SIGNING_ALLOWED=NO
