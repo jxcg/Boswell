@@ -45,8 +45,22 @@ on Linux; passing Core tests is not proof the app builds or renders.
    equals a GitHub issue number without checking; never recreate deleted issues
    without the owner's request.
 4. Branch `feature/BW-<n>` from current `main`, after required dependencies merge.
-   Commit `BW-<n>: <what changed>` and use `BW-<n>: <ticket title>` for the PR.
-   Use `Closes #<actual issue number>` only for a real, resolved issue.
+   Write commit messages and PR titles as Conventional Commits:
+   `<type>: <summary>`, such as `fix: stop model leaking system prompt into notes`.
+   Types: feat, fix, docs, refactor, test, ci, chore. No `Co-authored-by` or
+   other trailers.
+   Write the PR body in plain text with no bold, headings or other formatting
+   and no links, following `.github/pull_request_template.md`:
+
+   ```text
+   fix: stop model leaking system prompt into output notes
+
+   - Summary of fix (one sentence)
+   - How it was fixed (one sentence, more only if required)
+   - Summary of potential downstream impact
+
+   This PR addresses Issue 7 in GitHub issues
+   ```
 5. Every PR must build on its own after its prerequisites. Link future screens
    to explicit placeholders rather than referencing code that does not exist.
 6. Squash-merge only after required CI checks pass. The workflows define the
