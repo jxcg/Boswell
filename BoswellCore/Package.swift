@@ -3,7 +3,7 @@ import PackageDescription
 
 let package = Package(
     name: "BoswellCore",
-    platforms: [.iOS(.v17), .macOS(.v14)],
+    platforms: [.macOS(.v14)],
     products: [.library(name: "BoswellCore", targets: ["BoswellCore"])],
     targets: [
         .target(name: "BoswellCore"),

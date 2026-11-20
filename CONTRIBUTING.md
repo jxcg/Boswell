@@ -8,8 +8,8 @@ Boswell is a fictional-data prototype, **not for real patient use**.
   omissions, review/sign-off and export content belong here and need public-behaviour tests.
 - `App` is a thin SwiftUI/Apple-framework adapter: speech, model calls, storage,
   PDF drawing and screens. Do not put a second copy of Core rules in a view.
-- Swift tools 5.9, iOS 17 and macOS 14 are Core's minimums. The app targets iPhone
-  on iOS 27 and requires Xcode 27. Do not enable Swift 6 language mode in this scaffold.
+- Boswell is Mac only. Swift tools 5.9 and macOS 14 are Core's minimums. The app
+  targets macOS 27 and requires Xcode 27. Do not enable Swift 6 language mode in this scaffold.
 - Use XCTest for portable tests. No server or cloud AI is part of the app architecture.
 
 ## Local checks
@@ -27,12 +27,12 @@ On a Mac with Xcode 27 selected and XcodeGen installed:
 ```sh
 xcodegen generate
 xcodebuild build -project Boswell.xcodeproj -scheme Boswell \
-  -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO
+  -destination 'generic/platform=macOS' CODE_SIGNING_ALLOWED=NO
 ```
 
 See [README](README.md) for installation and signing. Generated projects, build
-output and local signing settings are not committed. No simulator or Apple SDK
-is available on Linux; passing Core tests is not proof the app builds or renders.
+output and local signing settings are not committed. No Apple SDK is available
+on Linux; passing Core tests is not proof the app builds or renders.
 
 ## Tickets and branches
 
