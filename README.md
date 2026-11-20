@@ -1,6 +1,6 @@
 # Boswell
 
-An on-device iPhone consultation scribe prototype: **the AI drafts, code checks,
+An on-device Mac consultation scribe prototype: **the AI drafts, code checks,
 the clinician decides**. The intended app records with patient agreement,
 transcribes locally, drafts a structured note, checks each item against the
 transcript, requires clinician review/sign-off, then exports the approved note.
@@ -43,23 +43,23 @@ can be snapshotted for later environments. A warm setup checks/reuses those
 tools and performs an incremental build, rather than unconditionally downloading
 them again. No resume script or long-lived service is needed by this scaffold.
 
-## Build the iPhone app (Mac only)
+## Build the Mac app
 
-Use Xcode 27 with the iOS platform installed:
+Use Xcode 27 on a Mac:
 
 ```sh
 brew install xcodegen
 xcodegen generate
-xcodebuild build -project Boswell.xcodeproj -scheme Boswell \
-  -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO
+xcodebuild test -project Boswell.xcodeproj -scheme Boswell \
+  -destination 'platform=macOS' CODE_SIGNING_ALLOWED=NO
 ```
 
-Open generated `Boswell.xcodeproj`, select scheme **Boswell** and an iPhone
-simulator to run the starter screen or inspect its SwiftUI preview. Check light
+Open generated `Boswell.xcodeproj`, select scheme **Boswell** and **My Mac**
+to run the starter screen or inspect its SwiftUI preview. Check light
 and dark appearance and large Dynamic Type. Linux can build/test Core but cannot
-build or render SwiftUI, use the iPhone simulator, or sign the app.
+build or render SwiftUI, or sign the app.
 
-For a physical device, put your own `DEVELOPMENT_TEAM` and a unique
+To sign the app, put your own `DEVELOPMENT_TEAM` and a unique
 `PRODUCT_BUNDLE_IDENTIFIER` in **Config/Signing.xcconfig** (git-ignored), then
 regenerate the project. The default `com.example.Boswell` is a development
 placeholder. The optional config is included by `Config/Boswell.xcconfig`;
@@ -70,7 +70,7 @@ never commit team credentials, signing keys or profiles.
 | Path | Purpose |
 | --- | --- |
 | `project.yml`, `Config/` | XcodeGen app spec and optional local signing |
-| `App/` | Starter SwiftUI app and accessible evidence key |
+| `App/`, `AppTests/` | Starter SwiftUI Mac app and app unit tests |
 | `BoswellCore/` | Foundation-only data contracts, fictional transcript and XCTest tests |
 | `.agents/` | Repeatable Swift setup and offline setup tests |
 | `.github/workflows/` | macOS Core/app checks and clean Ubuntu setup checks |
@@ -95,7 +95,7 @@ results this scaffold produces, nor evidence of a live model's accuracy.
 
 Next: device feasibility (BW-2), normalization (BW-3) and portable transcript
 chunking (BW-5), before evidence checking, note assembly, review and the full app.
-Speech and AI capability must be tested on an actual supported iPhone before
+Speech and AI capability must be tested on an actual supported Mac before
 claiming end-to-end on-device operation.
 
 See [CONTRIBUTING](CONTRIBUTING.md) for boundaries, ticket review and privacy rules.

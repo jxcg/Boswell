@@ -1,14 +1,14 @@
 name: Boswell
 options:
   deploymentTarget:
-    iOS: "27.0"
+    macOS: "27.0"
 packages:
   BoswellCore:
     path: BoswellCore
 targets:
   Boswell:
     type: application
-    platform: iOS
+    platform: macOS
     sources:
       - App
     configFiles:
@@ -16,21 +16,35 @@ targets:
       Release: Config/Boswell.xcconfig
     settings:
       base:
-        TARGETED_DEVICE_FAMILY: "1"
         SWIFT_VERSION: "5.0"
         GENERATE_INFOPLIST_FILE: YES
         INFOPLIST_KEY_CFBundleDisplayName: Boswell
-        INFOPLIST_KEY_UILaunchScreen_Generation: YES
         MARKETING_VERSION: "0.1.0"
         CURRENT_PROJECT_VERSION: "1"
     dependencies:
       - package: BoswellCore
+  BoswellTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - AppTests
+    settings:
+      base:
+        SWIFT_VERSION: "5.0"
+        GENERATE_INFOPLIST_FILE: YES
+    dependencies:
+      - target: Boswell
 schemes:
   Boswell:
     build:
       targets:
         Boswell: all
+        BoswellTests: [test]
     run:
       config: Debug
+    test:
+      config: Debug
+      targets:
+        - BoswellTests
     archive:
       config: Release

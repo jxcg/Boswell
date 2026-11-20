@@ -37,7 +37,7 @@ struct ContentView: View {
     }
 }
 
-private extension Confidence {
+extension Confidence {
     var tint: Color {
         switch self {
         case .green: return .green

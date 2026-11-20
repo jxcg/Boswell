@@ -11,7 +11,7 @@ title: "BW-<n>: "
 <!-- Observable outcomes, including the expected result of a check. -->
 - [ ]
 
-**Branch:** feature/BW-<n> · **Built on:** AI agent (Linux) | Mac | iPhone | owner · **Depends on:**
+**Branch:** feature/BW-<n> · **Built on:** AI agent (Linux) | Mac | owner · **Depends on:**
 
 ---
 
